@@ -148,4 +148,4 @@ crawler.crawl(
 #     label=0  # Tạm gán là 0, sau này lọc lại
 # )
 
-crawler.save_csv("data.csv")
+crawler.save_csv("data_viet.csv")
