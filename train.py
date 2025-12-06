@@ -71,7 +71,7 @@ if __name__ == "__main__":
     print("-" * 30)
 
     # 2. LOAD DATA
-    df = pd.read_csv("data_train.csv")
+    df = pd.read_csv("Data/data_train.csv")
     print("loaded data!")
 
     if 'text' not in df.columns:

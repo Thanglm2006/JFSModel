@@ -3,7 +3,7 @@ import pandas as pd
 
 # 1. Đọc file
 try:
-    df = pd.read_csv("facebook.csv")
+    df = pd.read_csv("Data/facebook.csv")
     print("✅ Đã load file facebook.csv")
 except FileNotFoundError:
     print("❌ Không tìm thấy file facebook.csv")
@@ -21,6 +21,6 @@ df['description'] = df['desc'].apply(convert_emoji)
 df.__delitem__("tile")
 df.__delitem__("desc")
 # 5. Lưu file
-output_file = "data_demojized.csv"
+output_file = "Data/data_demojized.csv"
 df.to_csv(output_file, index=False, encoding='utf-8-sig')
 print(f"💾 Đã lưu xong file: {output_file}")

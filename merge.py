@@ -1,7 +1,7 @@
 import pandas as pd
 
-df1 = pd.read_csv("data_demojized.csv")
-df2 = pd.read_csv("data.csv")
+df1 = pd.read_csv("Data/data_demojized.csv")
+df2 = pd.read_csv("Data/data.csv")
 
 df2["source"] = "facebook"
 df_total = pd.concat([df1, df2], ignore_index=True)
