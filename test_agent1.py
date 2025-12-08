@@ -1,26 +1,52 @@
 import re
-
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch.nn.functional as F
 import emoji
-model_path = "./my_scam_model"
-device = "cuda" if torch.cuda.is_available() else "cpu"
 
+# --- CẤU HÌNH ---
+# Đường dẫn đến thư mục chứa Model 1 (Model phân loại Rác/Tuyển dụng)
+MODEL_PATH = "./models/step1_mdeberta"  # Sửa đường dẫn này nếu bạn lưu tên khác
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Running on: {device}")
 
-loaded_tokenizer = AutoTokenizer.from_pretrained(model_path)
-loaded_model = AutoModelForSequenceClassification.from_pretrained(model_path)
-loaded_model.to(device)
-loaded_model.eval()
+# 1. LOAD MODEL
+try:
+    loaded_tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+    loaded_model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
+    loaded_model.to(device)
+    loaded_model.eval()
+    print(f"✅ Đã load Model 1 thành công từ: {MODEL_PATH}")
+except Exception as e:
+    print(f"❌ Lỗi: Không tìm thấy model tại '{MODEL_PATH}'.\nHãy kiểm tra lại đường dẫn.")
+    exit()
 
-print("Model loaded")
+
+def normalize_text(text):
+    # Hàm chuẩn hóa giống hệt lúc train để đảm bảo model hiểu đúng
+    if not isinstance(text, str):
+        return str(text) if text is not None else ""
+
+    # Chuẩn hóa thời gian/lương
+    text = re.sub(r'[\/\\]\s*(\d*h|giờ|tiếng)', ' một giờ ', text, flags=re.IGNORECASE)
+    text = re.sub(r'[\/\\]\s*(ngày|day)', ' một ngày ', text, flags=re.IGNORECASE)
+    text = re.sub(r'[\/\\]\s*(tháng|month)', ' một tháng ', text, flags=re.IGNORECASE)
+
+    # Chuẩn hóa tiền
+    text = re.sub(r'\b(\d+)\s*(k|ka|xu)\b', r'\1 nghìn', text, flags=re.IGNORECASE)
+    text = re.sub(r'\b(\d+)\s*(tr|triệu|củ)\b', r'\1 triệu', text, flags=re.IGNORECASE)
+
+    # Demojize
+    return emoji.demojize(text, language='alias')
 
 
-def predict_scam(text):
-    # Tokenize input
+def predict_is_job(text):
+    # Chuẩn hóa trước khi đưa vào model
+    clean_text = normalize_text(text)
+
     inputs = loaded_tokenizer(
-        text,
+        clean_text,
         return_tensors="pt",
         truncation=True,
         max_length=512,
@@ -31,61 +57,55 @@ def predict_scam(text):
         outputs = loaded_model(**inputs)
 
     logits = outputs.logits
+    probs = F.softmax(logits, dim=-1)  # Chuyển sang xác suất %
 
-    # use softmax to turn res to probabilities
-    probs = F.softmax(logits, dim=-1)
-
-    # take the highest probability
     pred_label_idx = torch.argmax(probs, dim=1).item()
     confidence = probs[0][pred_label_idx].item()
 
-    label_map = {0: "⚠️ LỪA ĐẢO (SCAM)", 1: "✅ UY TÍN (LEGIT)"}
+    # --- NHÃN CỦA MODEL 1 ---
+    # 0: Rác, Quảng cáo, Tìm việc
+    # 1: Bài Tuyển dụng (Kể cả lừa đảo)
+    label_map = {
+        0: "🗑️ RÁC/SPAM/TÌM VIỆC (NON-JOB)",
+        1: "📢 BÀI TUYỂN DỤNG (JOB)"
+    }
 
     return label_map[pred_label_idx], confidence, probs[0].tolist()
 
-def convert_emoji(text):
-    if not isinstance(text, str): # Nếu không phải chuỗi (ví dụ là nan/float)
-        return str(text)
-    return emoji.demojize(text, language='alias')
 
-
-def normalize_text(text):
-    # 1. Kiểm tra an toàn trước tiên
-    if not isinstance(text, str):
-        return str(text) if text is not None else ""
-
-    # LƯU Ý: Đã xóa dòng text = text.lower()
-
-    # 2. Chuẩn hóa thời gian/lương (Thêm flags=re.IGNORECASE)
-    # Bắt: /h, /H, /giờ, /Giờ...
-    text = re.sub(r'[\/\\]\s*(\d*h|giờ|tiếng)', ' một giờ ', text, flags=re.IGNORECASE)
-
-    # Bắt: /ngày, /Day, /Ngày...
-    text = re.sub(r'[\/\\]\s*(ngày|day)', ' một ngày ', text, flags=re.IGNORECASE)
-
-    # Bắt: /tháng, /Month...
-    text = re.sub(r'[\/\\]\s*(tháng|month)', ' một tháng ', text, flags=re.IGNORECASE)
-
-    # 3. Chuẩn hóa đơn vị tiền
-    # Bắt: 100k, 100K, 100ka, 100KA
-    text = re.sub(r'\b(\d+)\s*(k|ka)\b', r'\1 nghìn', text, flags=re.IGNORECASE)
-
-    # Bắt: 5tr, 5TR, 5Tr, 5củ...
-    text = re.sub(r'\b(\d+)\s*(tr|triệu|củ)\b', r'\1 triệu', text, flags=re.IGNORECASE)
-
-    # 4. Demojize (Chuyển icon thành text :smile:)
-    return emoji.demojize(text, language='alias')
+# --- DỮ LIỆU TEST ---
+# Bao gồm đủ các trường hợp để kiểm tra độ thông minh của model
 test_texts = [
-    "Tuyển dụng nhân viên nhập liệu tại nhà, không cần cọc, lương 500k/ngày, inbox nhận việc ngay 💰💰💰",
-    "Công ty FPT Software tuyển dụng Kỹ sư cầu nối (BrSE), yêu cầu tiếng Nhật N2, kinh nghiệm 2 năm.",
-        "🔥Quán cafe ông kẹ tuyển nhân viên phục vụ, lương 20k/h, ✅lịch làm: 7h-11h từ thứ 2 đến thứ 7."
+    # Case 1: Tuyển dụng uy tín (Mong đợi: JOB)
+    "Highlands Coffee tuyển nhân viên phục vụ, lương 25k/h, làm tại Hải Châu.",
+
+    # Case 2: Tuyển dụng lừa đảo (Mong đợi: JOB - Vì model này chỉ lọc rác, model 2 mới check scam)
+    "Tuyển nhân viên xâu hạt tại nhà, lương 500k/ngày, không cần cọc.",
+
+    # Case 3: Người tìm việc (Mong đợi: NON-JOB)
+    "Em là sinh viên năm nhất, cần tìm việc làm thêm ca tối ạ. Ai có ib em với.",
+
+    # Case 4: Quảng cáo bán hàng (Mong đợi: NON-JOB)
+    "Thanh lý lô quần áo giá rẻ, ship toàn quốc. Mại dô mại dô 📣📣",
+
+    # Case 5: Spam tài chính/Cho vay (Mong đợi: NON-JOB)
+    "Hỗ trợ vay vốn sinh viên lãi suất thấp, giải ngân trong ngày.",
+
+    # Case 6: Tin rác/Tâm sự (Mong đợi: NON-JOB)
+    "Buồn quá có ai đi cafe nói chuyện cho vui không ạ?",
+    "....",
+    "okok"
 ]
 
-print("\n--- KẾT QUẢ DỰ ĐOÁN ---")
+print("\n" + "=" * 50)
+print("--- KẾT QUẢ TEST MODEL 1 (FILTER) ---")
+print("=" * 50)
+
 for t in test_texts:
-    label, conf, all_probs = predict_scam(normalize_text(t))
-    print(f"📝 Text: {normalize_text(t)}")
-    print(f"🎯 Result: {label}")
-    print(f"📊 Accuracy: {conf:.2%}")
-    print(f"📉 Probabilitíe: [Lừa đảo: {all_probs[0]:.2%}, Uy tín: {all_probs[1]:.2%}]")
-    print("-" * 30)
+    label, conf, all_probs = predict_is_job(t)
+
+    print(f"📝 Text: {t}")
+    print(f"🎯 Kết quả: {label}")
+    print(f"📊 Độ tin cậy: {conf:.2%}")
+    print(f"📉 Chi tiết: [Rác: {all_probs[0]:.2%}, Tuyển dụng: {all_probs[1]:.2%}]")
+    print("-" * 50)

@@ -1,3 +1,5 @@
 .venv/
 my_scam_model/
+models/
+
 results/

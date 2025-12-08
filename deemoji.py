@@ -3,7 +3,7 @@ import pandas as pd
 
 # 1. Đọc file
 try:
-    df = pd.read_csv("Data/facebook.csv")
+    df = pd.read_csv("Data/raw/facebook.csv")
     print("✅ Đã load file facebook.csv")
 except FileNotFoundError:
     print("❌ Không tìm thấy file facebook.csv")

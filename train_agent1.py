@@ -1,9 +1,8 @@
-import re
-
-import emoji
 import pandas as pd
 import numpy as np
 import torch
+import re
+import emoji
 from datasets import Dataset
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
@@ -15,109 +14,93 @@ from transformers import (
     DataCollatorWithPadding
 )
 
+# --- CẤU HÌNH ---
+INPUT_FILE = "Data/step1/data_train_step1_balanced.csv"
+OUTPUT_DIR = "./models/step1_mdeberta"  # Đổi tên folder output
+
+# 🔥 THAY ĐỔI QUAN TRỌNG Ở ĐÂY 🔥
+# Dùng mDeBERTa-v3-base: Kiến trúc mới hơn, mạnh hơn RoBERTa
+MODEL_NAME = "microsoft/mdeberta-v3-base"
+
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+
+
+def normalize_text(text):
+    if not isinstance(text, str): return str(text) if text is not None else ""
+    text = re.sub(r'[\/\\]\s*(\d*h|giờ|tiếng)', ' một giờ ', text, flags=re.IGNORECASE)
+    text = re.sub(r'[\/\\]\s*(ngày|day)', ' một ngày ', text, flags=re.IGNORECASE)
+    text = re.sub(r'[\/\\]\s*(tháng|month)', ' một tháng ', text, flags=re.IGNORECASE)
+    text = re.sub(r'\b(\d+)\s*(k|ka|xu)\b', r'\1 nghìn', text, flags=re.IGNORECASE)
+    text = re.sub(r'\b(\d+)\s*(tr|triệu|củ)\b', r'\1 triệu', text, flags=re.IGNORECASE)
+    return emoji.demojize(text, language='alias')
+
+
+def preprocess_function(examples):
+    # mDeBERTa xử lý tốt context dài, nhưng 512 là chuẩn
+    return tokenizer(examples["text"], truncation=True, max_length=512)
+
 
 def compute_metrics(pred):
     labels = pred.label_ids
     preds = pred.predictions.argmax(-1)
     precision, recall, f1, _ = precision_recall_fscore_support(labels, preds, average='binary')
     acc = accuracy_score(labels, preds)
-    return {
-        'accuracy': acc,
-        'f1': f1,
-        'precision': precision,
-        'recall': recall
-    }
+    return {'accuracy': acc, 'f1': f1, 'precision': precision, 'recall': recall}
 
 
-def preprocess_function(examples):
-    # Lưu ý: biến tokenizer phải được truyền vào hoặc khai báo global
-    return tokenizer(examples["text"], truncation=True, max_length=512)
-def normalize_text(text):
-    # 1. Kiểm tra an toàn trước tiên
-    if not isinstance(text, str):
-        return str(text) if text is not None else ""
+def main():
+    print(f"🚀 BẮT ĐẦU TRAIN MODEL: {MODEL_NAME}...")
 
-    # LƯU Ý: Đã xóa dòng text = text.lower()
+    # 1. Load Data
+    try:
+        df = pd.read_csv(INPUT_FILE)
+    except FileNotFoundError:
+        print(f"❌ Không tìm thấy file {INPUT_FILE}")
+        return
 
-    # 2. Chuẩn hóa thời gian/lương (Thêm flags=re.IGNORECASE)
-    # Bắt: /h, /H, /giờ, /Giờ...
-    text = re.sub(r'[\/\\]\s*(\d*h|giờ|tiếng)', ' một giờ ', text, flags=re.IGNORECASE)
+    df['text'] = df['text'].apply(normalize_text)
 
-    # Bắt: /ngày, /Day, /Ngày...
-    text = re.sub(r'[\/\\]\s*(ngày|day)', ' một ngày ', text, flags=re.IGNORECASE)
+    # Đảm bảo label tồn tại
+    if 'is_recruitment' not in df.columns:
+        print("❌ File thiếu cột 'is_recruitment'")
+        return
 
-    # Bắt: /tháng, /Month...
-    text = re.sub(r'[\/\\]\s*(tháng|month)', ' một tháng ', text, flags=re.IGNORECASE)
+    df = df.dropna(subset=['is_recruitment'])
+    df['label'] = df['is_recruitment'].astype(int)
 
-    # 3. Chuẩn hóa đơn vị tiền
-    # Bắt: 100k, 100K, 100ka, 100KA
-    text = re.sub(r'\b(\d+)\s*(k|ka|xu)\b', r'\1 nghìn', text, flags=re.IGNORECASE)
+    print(f"📊 Dữ liệu train: {df['label'].value_counts()}")
 
-    # Bắt: 5tr, 5TR, 5Tr, 5củ...
-    text = re.sub(r'\b(\d+)\s*(tr|triệu|củ)\b', r'\1 triệu', text, flags=re.IGNORECASE)
-
-    # 4. Demojize (Chuyển icon thành text :smile:)
-    return emoji.demojize(text, language='alias')
-
-# --- QUAN TRỌNG: TOÀN BỘ CODE CHẠY PHẢI NẰM TRONG KHỐI NÀY ---
-if __name__ == "__main__":
-
-    # 1. KIỂM TRA GPU
-    print("-" * 30)
-    if torch.cuda.is_available():
-        print(f"✅ Đã tìm thấy GPU: {torch.cuda.get_device_name(0)}")
-    else:
-        print("⚠️ Chạy trên CPU")
-    print("-" * 30)
-
-    # 2. LOAD DATA
-    df = pd.read_csv("Data/data_train.csv")
-    print("loaded data!")
-
-    if 'text' not in df.columns:
-        df['text'] = normalize_text(df['title'].astype(str) + " \n " + df['description'].astype(str))
-
+    # 2. Split Data
     train_df, test_df = train_test_split(df, test_size=0.2, random_state=42, stratify=df['label'])
-
     train_dataset = Dataset.from_pandas(train_df)
     test_dataset = Dataset.from_pandas(test_df)
-
-    # 3. LOAD MODEL & TOKENIZER
-    model_name = "xlm-roberta-base"
-    # Khai báo tokenizer global để hàm preprocess dùng được
-    global tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     tokenized_train = train_dataset.map(preprocess_function, batched=True)
     tokenized_test = test_dataset.map(preprocess_function, batched=True)
 
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
-    model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2)
 
-    # 4. CONFIG TRAINING
+    # Load Model
+    model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2)
+
+    # 3. Training Config
     training_args = TrainingArguments(
-        output_dir="./results",
-        overwrite_output_dir=True,
-        save_total_limit=2,
-        learning_rate=2e-5,
+        output_dir="./results/filter_checkpoints_mdeberta",
+        learning_rate=2e-5,  # mDeBERTa thích learning rate nhỏ (1e-5 hoặc 2e-5)
 
-        # Cấu hình cho RTX 3080 10GB
+        # RTX 3080 10GB có thể chịu được batch 8
         per_device_train_batch_size=8,
         gradient_accumulation_steps=4,
         per_device_eval_batch_size=16,
-        fp16=True,
-
-        # --- QUAN TRỌNG CHO WINDOWS: PHẢI ĐỂ LÀ 0 ---
-        dataloader_num_workers=0,
-        # --------------------------------------------
 
         num_train_epochs=5,
         weight_decay=0.01,
         eval_strategy="epoch",
         save_strategy="epoch",
-        logging_strategy="epoch",
         load_best_model_at_end=True,
         metric_for_best_model="f1",
+        fp16=torch.cuda.is_available(),
+        dataloader_num_workers=0,
         report_to="none"
     )
 
@@ -131,11 +114,13 @@ if __name__ == "__main__":
         compute_metrics=compute_metrics,
     )
 
-    print("🚀 Bắt đầu training!")
     trainer.train()
 
-    # 5. SAVE MODEL
-    save_path = "./my_scam_model"
-    trainer.save_model(save_path)
-    tokenizer.save_pretrained(save_path)
-    print(f"💾 Đã lưu model tại: {save_path}")
+    # 4. Save
+    trainer.save_model(OUTPUT_DIR)
+    tokenizer.save_pretrained(OUTPUT_DIR)
+    print(f"✅ Đã lưu model mDeBERTa tại: {OUTPUT_DIR}")
+
+
+if __name__ == "__main__":
+    main()
