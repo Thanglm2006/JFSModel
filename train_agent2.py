@@ -26,11 +26,11 @@ from transformers import (
 )
 
 # --- CẤU HÌNH ---
-INPUT_FILE = "Data/step2/content1_step2.csv"
-OUTPUT_DIR = "./models/step2_roberta"
+INPUT_FILE = "Data/step2/data_train_step2_balanced.csv"
+OUTPUT_DIR = "models/step2_mdeberta"
 
 #(~560M params)
-MODEL_NAME = "xlm-roberta-large"
+MODEL_NAME = "microsoft/mdeberta-v3-base"
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
@@ -99,22 +99,21 @@ def main():
     training_args = TrainingArguments(
         output_dir="./results/scam_large_checkpoints",
 
-        # --- CẤU HÌNH VRAM 10GB ---
-        per_device_train_batch_size=4,  # Giảm batch xuống 4 vì model Large rất nặng
-        gradient_accumulation_steps=8,  # Tích lũy 8 lần -> Tương đương batch size 32 (4*8)
-        gradient_checkpointing=True,  # 🔥 QUAN TRỌNG: Giảm 50% VRAM, cho phép train model Large
-        fp16=True,  # Bắt buộc dùng FP16 trên 3080 để nhanh và nhẹ
-        # --------------------------
+        learning_rate=2e-5,  # mDeBERTa nên để learning rate nhỏ (1e-5 hoặc 2e-5)
 
-        learning_rate=1e-5,  # Model Large cần LR nhỏ để ổn định
-        num_train_epochs=6,  # Model lớn hội tụ nhanh hơn, 6-7 epochs là đủ (tránh overfitting)
+        # RTX 3080 10GB có thể chịu được batch 8
+        per_device_train_batch_size=8,
+        gradient_accumulation_steps=4,
+        per_device_eval_batch_size=16,
 
+        num_train_epochs=5,
         weight_decay=0.01,
         eval_strategy="epoch",
         save_strategy="epoch",
         load_best_model_at_end=True,
         metric_for_best_model="f1",
-        dataloader_num_workers=0,  # Windows bắt buộc để 0
+        fp16=torch.cuda.is_available(),
+        dataloader_num_workers=0,
         report_to="none"
     )
 

@@ -1,3 +1,12 @@
+import os
+# --- CẤU HÌNH LƯU CACHE SANG Ổ D ---
+# Tạo thư mục này trên ổ D trước nếu chưa có
+cache_dir = "D:/huggingface_cache"
+if not os.path.exists(cache_dir):
+    os.makedirs(cache_dir)
+
+# Thiết lập biến môi trường
+os.environ["HF_HOME"] = cache_dir
 import pandas as pd
 import numpy as np
 import torch
@@ -86,7 +95,7 @@ def main():
     # 3. Training Config
     training_args = TrainingArguments(
         output_dir="./results/filter_checkpoints_mdeberta",
-        learning_rate=2e-5,  # mDeBERTa thích learning rate nhỏ (1e-5 hoặc 2e-5)
+        learning_rate=2e-5,  # mDeBERTa nên để learning rate nhỏ (1e-5 hoặc 2e-5)
 
         # RTX 3080 10GB có thể chịu được batch 8
         per_device_train_batch_size=8,

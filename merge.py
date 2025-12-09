@@ -5,16 +5,16 @@ from sklearn.utils import shuffle
 
 # --- CẤU HÌNH ---
 INPUT_FILES = [
-    "Data/step1/content4_step1.csv",
-    "Data/step1/content3_step1.csv",
-    "Data/step1/content2_step1.csv",
-    "Data/step1/content1_step1.csv",
-    "Data/step1/facebook.csv",
-    "Data/step1/data_viet.csv"
+    "Data/step2/content4_step2.csv",
+    "Data/step2/content3_step2.csv",
+    "Data/step2/content2_step2.csv",
+    "Data/step2/content1_step2.csv",
+    "Data/step2/facebook.csv",
+    "Data/step2/data_viet.csv"
 ]
 
-OUTPUT_TRAIN = "Data/step1/data_train_step1_1-3.csv"  # Đặt tên rõ cho Model 1
-TARGET_COL = 'is_recruitment'  # Cột dùng để cân bằng 1:1
+OUTPUT_TRAIN = "Data/step2/data_train_step2_balanced.csv"
+TARGET_COL = 'label'  # Cột dùng để cân bằng
 
 
 def convert_emoji(text):
@@ -98,7 +98,7 @@ def clean_and_merge():
             min_count = counts.min()
             # Lấy mẫu
             df_0 = final_df[final_df[TARGET_COL] == 0].sample(n=min_count, random_state=42)
-            df_1 = final_df[final_df[TARGET_COL] == 1].sample(n=min_count*3, random_state=42)
+            df_1 = final_df[final_df[TARGET_COL] == 1].sample(n=min_count*1, random_state=42)
 
             # Gộp và Trộn
             final_df = pd.concat([df_0, df_1])

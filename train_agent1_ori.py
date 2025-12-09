@@ -1,5 +1,5 @@
 import re
-
+import os
 import emoji
 import pandas as pd
 import numpy as np
@@ -15,7 +15,14 @@ from transformers import (
     DataCollatorWithPadding
 )
 
+# --- CẤU HÌNH LƯU CACHE SANG Ổ D ---
+# Tạo thư mục này trên ổ D trước nếu chưa có
+cache_dir = "D:/huggingface_cache"
+if not os.path.exists(cache_dir):
+    os.makedirs(cache_dir)
 
+# Thiết lập biến môi trường
+os.environ["HF_HOME"] = cache_dir
 def compute_metrics(pred):
     labels = pred.label_ids
     preds = pred.predictions.argmax(-1)

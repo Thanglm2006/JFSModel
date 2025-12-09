@@ -35,7 +35,7 @@ def normalize_text(text):
 
     # Chuẩn hóa tiền
     text = re.sub(r'\b(\d+)\s*(k|ka|xu)\b', r'\1 nghìn', text, flags=re.IGNORECASE)
-    text = re.sub(r'\b(\d+)\s*(tr|triệu|củ)\b', r'\1 triệu', text, flags=re.IGNORECASE)
+    text = re.sub(r'\b(\d+)\s*(tr|triệu|củ|m)\b', r'\1 triệu', text, flags=re.IGNORECASE)
 
     # Demojize
     return emoji.demojize(text, language='alias')
@@ -78,13 +78,15 @@ def predict_is_job(text):
 test_texts = [
     # Case 1: Tuyển dụng uy tín (Mong đợi: JOB)
     "Highlands Coffee tuyển nhân viên phục vụ, lương 25k/h, làm tại Hải Châu.",
+    "cần nhân viên phục vụ",
 
     # Case 2: Tuyển dụng lừa đảo (Mong đợi: JOB - Vì model này chỉ lọc rác, model 2 mới check scam)
     "Tuyển nhân viên xâu hạt tại nhà, lương 500k/ngày, không cần cọc.",
 
     # Case 3: Người tìm việc (Mong đợi: NON-JOB)
     "Em là sinh viên năm nhất, cần tìm việc làm thêm ca tối ạ. Ai có ib em với.",
-
+    "em 2k3 đang kiếm công việc ca chiều ạ!",
+    "em tìm cv phụ hồ",
     # Case 4: Quảng cáo bán hàng (Mong đợi: NON-JOB)
     "Thanh lý lô quần áo giá rẻ, ship toàn quốc. Mại dô mại dô 📣📣",
 

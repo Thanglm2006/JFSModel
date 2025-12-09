@@ -4,7 +4,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch.nn.functional as F
 import emoji
-model_path = "./my_scam_model"
+model_path = "models/step2_mdeberta"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 print(f"Running on: {device}")
@@ -71,14 +71,26 @@ def normalize_text(text):
     text = re.sub(r'\b(\d+)\s*(k|ka)\b', r'\1 nghìn', text, flags=re.IGNORECASE)
 
     # Bắt: 5tr, 5TR, 5Tr, 5củ...
-    text = re.sub(r'\b(\d+)\s*(tr|triệu|củ)\b', r'\1 triệu', text, flags=re.IGNORECASE)
+    text = re.sub(r'\b(\d+)\s*(tr|triệu|củ|m)\b', r'\1 triệu', text, flags=re.IGNORECASE)
 
     # 4. Demojize (Chuyển icon thành text :smile:)
     return emoji.demojize(text, language='alias')
 test_texts = [
     "Tuyển dụng nhân viên nhập liệu tại nhà, không cần cọc, lương 500k/ngày, inbox nhận việc ngay 💰💰💰",
     "Công ty FPT Software tuyển dụng Kỹ sư cầu nối (BrSE), yêu cầu tiếng Nhật N2, kinh nghiệm 2 năm.",
-        "🔥Quán cafe ông kẹ tuyển nhân viên phục vụ, lương 20k/h, ✅lịch làm: 7h-11h từ thứ 2 đến thứ 7."
+        "🔥Quán cafe ông kẹ tuyển nhân viên phục vụ, lương 20k/h, ✅lịch làm: 7h-11h từ thứ 2 đến thứ 7.",
+    """
+    🥇Chỗ mình đang cần người phụ bán hàng các mặt hàng organic.
+🥇Thời gian từ 8h đến 17h chiều
+🥇Có thể làm cả ngày hay 1 buổi.
+ - Thời gian: 
++ Sáng từ 8h - 11h30
++ Chiều từ 13h30 - 17h00
+🥇Tuổi 
++Nam từ 20 tuổi - 30 tuổi
++Nữ từ 20 tuổi - 55 tuổi
+Bạn nào có nhu cầu xin liên hệ 0932580161
+"""
 ]
 
 print("\n--- KẾT QUẢ DỰ ĐOÁN ---")
