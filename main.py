@@ -9,8 +9,8 @@ from typing import Optional
 
 # --- CẤU HÌNH ĐƯỜNG DẪN MODEL ---
 # Hãy thay đổi đường dẫn này trỏ đến đúng thư mục model bạn đã train
-MODEL_FILTER_PATH = "./models/step1_mdeberta"  # Model 1: Lọc bài (0: Rác, 1: Tuyển dụng)
-MODEL_SCAM_PATH = "./models/step2_mdeberta"  # Model 2: Check Scam (0: Scam, 1: Legit)
+MODEL_FILTER_PATH = "./models/step1/step1"  # Model 1: Lọc bài (0: Rác, 1: Tuyển dụng)
+MODEL_SCAM_PATH = "./models/step2/step2"  # Model 2: Check Scam (0: Scam, 1: Legit)
 
 # Khởi tạo App
 app = FastAPI(
@@ -156,8 +156,8 @@ def predict(request: TextRequest):
 
 
 # # --- CHẠY SERVER (NẾU CHẠY TRỰC TIẾP) ---
-# if __name__ == "__main__":
-#     import uvicorn
-#
-#     # Chạy server tại localhost:8000
-#     uvicorn.run(app, host="0.0.0.0", port=8000)
+if __name__ == "__main__":
+    import uvicorn
+
+    # Chạy server tại localhost:8000
+    uvicorn.run(app, host="0.0.0.0", port=8000)

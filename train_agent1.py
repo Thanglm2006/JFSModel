@@ -27,8 +27,7 @@ from transformers import (
 INPUT_FILE = "Data/step1/data_train_step1_balanced.csv"
 OUTPUT_DIR = "./models/step1_mdeberta"  # Đổi tên folder output
 
-# 🔥 THAY ĐỔI QUAN TRỌNG Ở ĐÂY 🔥
-# Dùng mDeBERTa-v3-base: Kiến trúc mới hơn, mạnh hơn RoBERTa
+
 MODEL_NAME = "microsoft/mdeberta-v3-base"
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
